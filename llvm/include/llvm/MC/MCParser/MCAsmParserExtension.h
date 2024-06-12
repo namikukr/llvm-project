@@ -64,7 +64,7 @@ public:
   }
 
   SourceMgr &getSourceManager() { return getParser().getSourceManager(); }
-  MCStreamer &getStreamer() { return getParser().getStreamer(); }
+  virtual MCStreamer &getStreamer() { return getParser().getStreamer(); }
 
   bool Warning(SMLoc L, const Twine &Msg) {
     return getParser().Warning(L, Msg);

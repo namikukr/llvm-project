@@ -17,9 +17,11 @@
 #include "MCTargetDesc/AArch64AddressingModes.h"
 #include "MCTargetDesc/AArch64InstPrinter.h"
 #include "TargetInfo/AArch64TargetInfo.h"
+#include "Utils/AArch64LiftingStreamer.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCCodeEmitter.h"
+#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCInstrAnalysis.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCObjectWriter.h"
@@ -399,8 +401,17 @@ static MCStreamer *
 createWinCOFFStreamer(MCContext &Ctx, std::unique_ptr<MCAsmBackend> &&TAB,
                       std::unique_ptr<MCObjectWriter> &&OW,
                       std::unique_ptr<MCCodeEmitter> &&Emitter) {
-  return createAArch64WinCOFFStreamer(Ctx, std::move(TAB), std::move(OW),
+  auto *S = createAArch64WinCOFFStreamer(Ctx, std::move(TAB), std::move(OW),
                                       std::move(Emitter));
+  // Allow rewriting of registers if the target is ARM64EC.
+  if (Ctx.getTargetTriple().isWindowsArm64EC()) {
+    // TODO: this needs a delete, but I don't know where to put it.
+    //       posssibly include a delete for the 2nd one in destructor?
+    dbgs() << "initializing custom streamer ...\n";
+    auto *O = new AArch64LiftingStreamer(S);
+    return O;
+  } 
+  return S;
 }
 
 namespace {

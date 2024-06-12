@@ -14,6 +14,7 @@
 #include "MCTargetDesc/AArch64TargetStreamer.h"
 #include "TargetInfo/AArch64TargetInfo.h"
 #include "Utils/AArch64BaseInfo.h"
+#include "Utils/AArch64LiftingStreamer.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -41,6 +42,7 @@
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCTargetOptions.h"
 #include "llvm/MC/MCValue.h"
+#include "llvm/MC/MCWinCOFFStreamer.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
@@ -227,6 +229,10 @@ private:
   bool parseDirectiveSEHClearUnwoundToCall(SMLoc L);
   bool parseDirectiveSEHPACSignLR(SMLoc L);
   bool parseDirectiveSEHSaveAnyReg(SMLoc L, bool Paired, bool Writeback);
+
+  void onLabelParsed(MCSymbol *Symbol) override;
+  void doBeforeLabelEmit(MCSymbol *Symbol, SMLoc IDLoc) override;
+  void onEndOfFile() override;
 
   bool validateInstruction(MCInst &Inst, SMLoc &IDLoc,
                            SmallVectorImpl<SMLoc> &Loc);
@@ -7483,6 +7489,7 @@ bool AArch64AsmParser::parseDirectiveSEHAddFP(SMLoc L) {
   int64_t Size;
   if (parseImmExpr(Size))
     return true;
+
   getTargetStreamer().emitARM64WinCFIAddFP(Size);
   return false;
 }
@@ -8101,4 +8108,20 @@ ParseStatus AArch64AsmParser::tryParseImmRange(OperandVector &Operands) {
   Operands.push_back(
       AArch64Operand::CreateImmRange(ImmFVal, ImmLVal, S, E, getContext()));
   return ParseStatus::Success;
+}
+
+void AArch64AsmParser::onLabelParsed(MCSymbol *Symbol) {
+  llvm::dbgs() << "Emitting Parsed Label: " << Symbol->getName() << "\n";
+}
+
+void AArch64AsmParser::doBeforeLabelEmit(MCSymbol *Symbol, SMLoc IDLoc) {
+  llvm::dbgs() << "Parsed Label: " << Symbol->getName() << "\n";
+}
+
+void AArch64AsmParser::onEndOfFile() {
+  // TODO: this should become a dynamic cast if we make rewrites optional.
+  if (IsWindowsArm64EC) {
+    AArch64LiftingStreamer &S = static_cast<AArch64LiftingStreamer &>(getStreamer());
+    S.setMII(&MII);
+  }
 }

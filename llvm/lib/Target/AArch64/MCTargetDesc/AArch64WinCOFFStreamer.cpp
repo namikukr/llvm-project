@@ -7,10 +7,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64WinCOFFStreamer.h"
+#include "AArch64TargetStreamer.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCObjectWriter.h"
+#include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCWin64EH.h"
 #include "llvm/MC/MCWinCOFFStreamer.h"
 
@@ -20,6 +22,7 @@ namespace {
 
 class AArch64WinCOFFStreamer : public MCWinCOFFStreamer {
   Win64EH::ARM64UnwindEmitter EHStreamer;
+  bool AsmFunc = false;
 
 public:
   AArch64WinCOFFStreamer(MCContext &C, std::unique_ptr<MCAsmBackend> AB,
@@ -31,6 +34,7 @@ public:
   void emitWindowsUnwindTables() override;
   void emitWindowsUnwindTables(WinEH::FrameInfo *Frame) override;
   void finishImpl() override;
+  bool consumeAsmFunc() override;
 };
 
 void AArch64WinCOFFStreamer::emitWinEHHandlerData(SMLoc Loc) {
@@ -57,6 +61,15 @@ void AArch64WinCOFFStreamer::finishImpl() {
   emitWindowsUnwindTables();
 
   MCWinCOFFStreamer::finishImpl();
+}
+
+// ARM64EC: If we switched to a text section recently, consume the function.
+bool AArch64WinCOFFStreamer::consumeAsmFunc() {
+  if (AsmFunc) {
+    AsmFunc = false;
+    return true;
+  }
+  return false;
 }
 } // end anonymous namespace
 
